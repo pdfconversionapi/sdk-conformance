@@ -1,0 +1,4 @@
+# Test inputs are compared byte for byte (sizes and checksums), so git must never convert their
+# line endings, for example to CRLF on a Windows checkout.
+fixtures/** -text
+samples/** -text
