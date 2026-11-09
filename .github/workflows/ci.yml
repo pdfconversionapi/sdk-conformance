@@ -1,0 +1,27 @@
+# Checks the mock API against its own expectations on every push and pull request. Each SDK
+# repository keeps a copy of this suite in its conformance/ folder.
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  selftest:
+    name: Mock self-test (Node.js ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ["18", "20", "22", "24"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Check that cases.json is valid JSON
+        run: node -e 'JSON.parse(require("fs").readFileSync("cases.json", "utf8"))'
+      - run: node selftest.mjs

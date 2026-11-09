@@ -1,0 +1,3 @@
+# The local test API's key: never commit.
+.local-api.env
+.DS_Store

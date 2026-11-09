@@ -1,0 +1,502 @@
+{
+  "version": 1,
+  "about": "Shared conformance cases for every PDF Conversion API SDK. Each SDK's test suite loads this file and runs every case against mock-server.mjs. The format is described in README.md. Error type names are canonical; SPEC.md maps them to each language.",
+  "key": "test-key",
+  "cases": [
+    {
+      "id": "convert-path",
+      "description": "One file from a path; the output is the input's bytes under the new extension.",
+      "call": "convert",
+      "from": "txt",
+      "to": "pdf",
+      "files": [{ "path": "hello.txt" }],
+      "expect": {
+        "result": {
+          "conversion_cost": 1,
+          "request_id": true,
+          "files": [{ "name": "hello.pdf", "ext": "pdf", "size": 38, "data_fixture": "hello.txt" }]
+        },
+        "attempts": 1
+      }
+    },
+    {
+      "id": "convert-bytes",
+      "description": "One file from bytes in memory, with a name.",
+      "call": "convert",
+      "from": "txt",
+      "to": "pdf",
+      "files": [{ "bytes": "hello.txt", "name": "notes.txt" }],
+      "expect": { "result": { "files": [{ "name": "notes.pdf", "size": 38, "data_fixture": "hello.txt" }] } }
+    },
+    {
+      "id": "convert-bytes-no-name",
+      "description": "Bytes without a name are uploaded as \"file\".",
+      "call": "convert",
+      "from": "txt",
+      "to": "pdf",
+      "files": [{ "bytes": "hello.txt" }],
+      "expect": { "result": { "files": [{ "name": "file.pdf", "data_fixture": "hello.txt" }] } }
+    },
+    {
+      "id": "convert-stream",
+      "description": "One file from a stream or reader, with a name.",
+      "call": "convert",
+      "from": "txt",
+      "to": "pdf",
+      "files": [{ "stream": "hello.txt", "name": "stream.txt" }],
+      "expect": { "result": { "files": [{ "name": "stream.pdf", "data_fixture": "hello.txt" }] } }
+    },
+    {
+      "id": "formats-lowercased",
+      "description": "Format names are sent in lower case.",
+      "call": "convert",
+      "from": "TXT",
+      "to": "Pdf",
+      "files": [{ "path": "hello.txt" }],
+      "params": { "MockScenario": "echo" },
+      "expect": { "echo": { "path": "/v2/convert/txt/to/pdf" } }
+    },
+    {
+      "id": "echo-request-shape",
+      "description": "The request: path, empty query, Bearer key, User-Agent, multipart body, File field, parameters as text (numbers in decimal, booleans as true/false), null parameters left out.",
+      "call": "convert",
+      "from": "txt",
+      "to": "pdf",
+      "files": [{ "path": "hello.txt" }],
+      "params": { "MockScenario": "echo", "PageRange": "1-3", "ImageResolution": 72, "MultiPage": false, "Grayscale": true, "Empty": null },
+      "expect": {
+        "echo": {
+          "method": "POST",
+          "path": "/v2/convert/txt/to/pdf",
+          "query": "",
+          "authorization": "Bearer test-key",
+          "user_agent_prefix": "pdfconversionapi-",
+          "content_type_prefix": "multipart/form-data",
+          "fields": [
+            { "name": "File", "filename": "hello.txt", "size": 38 },
+            { "name": "PageRange", "value": "1-3" },
+            { "name": "ImageResolution", "value": "72" },
+            { "name": "MultiPage", "value": "false" },
+            { "name": "Grayscale", "value": "true" }
+          ],
+          "absent_fields": ["Empty"]
+        }
+      }
+    },
+    {
+      "id": "echo-several-files",
+      "description": "Several inputs go in repeated Files fields, in the order given.",
+      "call": "convert",
+      "from": "pdf",
+      "to": "merge",
+      "files": [{ "path": "a.txt" }, { "path": "b.txt" }, { "path": "c.txt" }],
+      "params": { "MockScenario": "echo" },
+      "expect": {
+        "echo": {
+          "fields": [
+            { "name": "Files", "filename": "a.txt", "size": 2 },
+            { "name": "Files", "filename": "b.txt", "size": 2 },
+            { "name": "Files", "filename": "c.txt", "size": 2 }
+          ],
+          "absent_fields": ["File"]
+        }
+      }
+    },
+    {
+      "id": "echo-named-file",
+      "description": "A file passed as a parameter value is sent as a file field with that name.",
+      "call": "convert",
+      "from": "pdf",
+      "to": "image-watermark",
+      "files": [{ "path": "hello.txt" }],
+      "params": { "MockScenario": "echo", "ImageFile": { "path": "logo.png" }, "Opacity": 30 },
+      "expect": {
+        "echo": {
+          "fields": [
+            { "name": "File", "filename": "hello.txt", "size": 38 },
+            { "name": "ImageFile", "filename": "logo.png", "size": 69 },
+            { "name": "Opacity", "value": "30" }
+          ]
+        }
+      }
+    },
+    {
+      "id": "echo-file-name-and-store-options",
+      "description": "The typed options file_name and store_file are sent as FileName and StoreFile.",
+      "call": "convert",
+      "from": "txt",
+      "to": "pdf",
+      "files": [{ "path": "hello.txt" }],
+      "params": { "MockScenario": "echo" },
+      "options": { "file_name": "custom name", "store_file": true },
+      "expect": {
+        "echo": { "fields": [{ "name": "FileName", "value": "custom name" }, { "name": "StoreFile", "value": "true" }] },
+        "result": { "files": [{ "name": "request.json", "stored": true }] }
+      }
+    },
+    {
+      "id": "echo-path-basename",
+      "description": "A path upload sends only the file's own name, never its folders.",
+      "call": "convert",
+      "from": "txt",
+      "to": "pdf",
+      "files": [{ "path": "nested/inner.txt" }],
+      "params": { "MockScenario": "echo" },
+      "expect": { "echo": { "fields": [{ "name": "File", "filename": "inner.txt", "size": 6 }] } }
+    },
+    {
+      "id": "echo-unicode-filename",
+      "description": "A non-ASCII name is sent as raw UTF-8 in filename=\"...\" (the API ignores filename*).",
+      "call": "convert",
+      "from": "txt",
+      "to": "pdf",
+      "files": [{ "bytes_utf8": "unicode\n", "name": "Résumé final (1).txt" }],
+      "params": { "MockScenario": "echo" },
+      "expect": { "echo": { "fields": [{ "name": "File", "filename": "Résumé final (1).txt", "size": 8 }] } }
+    },
+    {
+      "id": "echo-quote-in-filename",
+      "description": "A quote in a file name is sent as _ (the API reads %22 literally, and would turn a quote into _ itself).",
+      "call": "convert",
+      "from": "txt",
+      "to": "pdf",
+      "files": [{ "bytes_utf8": "q\n", "name": "say \"hi\".txt" }],
+      "params": { "MockScenario": "echo" },
+      "expect": { "echo": { "fields": [{ "name": "File", "filename": "say _hi_.txt", "size": 2 }] } }
+    },
+    {
+      "id": "echo-field-name-escape",
+      "description": "A quote in a parameter name is escaped as %22, not replaced with _, so the API still refuses the invalid name instead of silently ignoring a renamed one.",
+      "call": "convert",
+      "from": "txt",
+      "to": "pdf",
+      "files": [{ "path": "hello.txt" }],
+      "params": { "MockScenario": "echo", "Page\"Range": "1-3" },
+      "expect": { "echo": { "fields": [{ "name": "Page%22Range", "value": "1-3" }], "absent_fields": ["Page_Range"] } }
+    },
+    {
+      "id": "quote-in-filename-output",
+      "call": "convert",
+      "from": "txt",
+      "to": "pdf",
+      "files": [{ "bytes_utf8": "q\n", "name": "say \"hi\".txt" }],
+      "expect": { "result": { "files": [{ "name": "say _hi_.pdf", "data_utf8": "q\n" }] } }
+    },
+    {
+      "id": "unicode-filename-output",
+      "description": "The API names the output after the upload's UTF-8 name.",
+      "call": "convert",
+      "from": "txt",
+      "to": "pdf",
+      "files": [{ "bytes_utf8": "unicode\n", "name": "Résumé final.txt" }],
+      "expect": { "result": { "files": [{ "name": "Résumé final.pdf", "data_utf8": "unicode\n" }] } }
+    },
+    {
+      "id": "base-url-trailing-slash",
+      "description": "A base URL ending in a slash doesn't produce a double slash.",
+      "call": "convert",
+      "client": { "base_url_suffix": "/" },
+      "from": "txt",
+      "to": "pdf",
+      "files": [{ "path": "hello.txt" }],
+      "params": { "MockScenario": "echo" },
+      "expect": { "echo": { "path": "/v2/convert/txt/to/pdf" } }
+    },
+    {
+      "id": "merge-several-files",
+      "description": "A merge returns one file named after the first input, holding all inputs in order.",
+      "call": "convert",
+      "from": "pdf",
+      "to": "merge",
+      "files": [{ "path": "a.txt" }, { "path": "b.txt" }, { "path": "c.txt" }],
+      "expect": { "result": { "files": [{ "name": "a.pdf", "ext": "pdf", "size": 6, "data_utf8": "A\nB\nC\n" }] } }
+    },
+    {
+      "id": "one-file-conversion-gets-two",
+      "description": "The API's 400 for two files on a one-file conversion is raised, not retried.",
+      "call": "convert",
+      "from": "txt",
+      "to": "pdf",
+      "files": [{ "path": "a.txt" }, { "path": "b.txt" }],
+      "expect": { "error": { "type": "BadRequestError", "status": 400, "message_contains": "exactly one file", "request_id": true }, "attempts": 1 }
+    },
+    {
+      "id": "multi-output-save-all",
+      "description": "Several outputs come back in order and can all be saved into a folder.",
+      "call": "convert",
+      "from": "txt",
+      "to": "pdf",
+      "files": [{ "path": "hello.txt" }],
+      "params": { "MockScenario": "multi" },
+      "expect": {
+        "result": {
+          "files": [
+            { "name": "hello-1.pdf", "data_utf8": "page 1\n" },
+            { "name": "hello-2.pdf", "data_utf8": "page 2\n" },
+            { "name": "hello-3.pdf", "data_utf8": "page 3\n" }
+          ]
+        },
+        "save_all": { "hello-1.pdf": "page 1\n", "hello-2.pdf": "page 2\n", "hello-3.pdf": "page 3\n" }
+      }
+    },
+    {
+      "id": "stored-file-flow",
+      "description": "store_file returns a link and an id instead of data. Download it (without the API key), delete it (true), delete again (false), and a download after the delete raises NotFoundError.",
+      "call": "stored_file_flow",
+      "from": "txt",
+      "to": "pdf",
+      "files": [{ "path": "hello.txt" }],
+      "options": { "store_file": true },
+      "expect": {
+        "result": { "files": [{ "name": "hello.pdf", "size": 38, "stored": true }] },
+        "download_fixture": "hello.txt",
+        "data_access_error": "StoredFileError",
+        "first_delete": true,
+        "second_delete": false,
+        "download_after_delete_error": "NotFoundError"
+      }
+    },
+    {
+      "id": "invalid-format-rejected-locally",
+      "description": "A format name that isn't 1-20 letters, digits or hyphens is refused before any request.",
+      "call": "convert",
+      "from": "../etc",
+      "to": "pdf",
+      "files": [{ "path": "hello.txt" }],
+      "expect": { "error": { "type": "ArgumentError" }, "attempts": 0 }
+    },
+    {
+      "id": "no-files-sent-to-api",
+      "description": "An empty files list is sent with no file field; a conversion that needs one gets the API's 400.",
+      "call": "convert",
+      "from": "txt",
+      "to": "pdf",
+      "files": [],
+      "expect": { "error": { "type": "BadRequestError", "status": 400, "message": "no input file was provided" }, "attempts": 1 }
+    },
+    {
+      "id": "echo-no-files",
+      "description": "Called without files, the request has parameters only.",
+      "call": "convert",
+      "from": "data",
+      "to": "qrcode",
+      "params": { "MockScenario": "echo", "Data": "hello-sdk" },
+      "expect": { "echo": { "path": "/v2/convert/data/to/qrcode", "fields": [{ "name": "Data", "value": "hello-sdk" }], "absent_fields": ["File", "Files"] } }
+    },
+    {
+      "id": "optional-input-no-files",
+      "description": "data/to/qrcode takes no file; the output is named after the tool.",
+      "call": "convert",
+      "from": "data",
+      "to": "qrcode",
+      "params": { "Data": "hello-sdk" },
+      "expect": { "result": { "files": [{ "name": "qrcode.svg", "ext": "svg", "data_utf8": "hello-sdk" }] }, "attempts": 1 }
+    },
+    {
+      "id": "truncated-response-not-retried",
+      "description": "The connection drops after a 200 status line: ConnectionError at once, no retry (the conversion may have counted).",
+      "call": "convert", "from": "txt", "to": "pdf", "files": [{ "path": "hello.txt" }],
+      "params": { "MockScenario": "truncated" },
+      "expect": { "error": { "type": "ConnectionError" }, "attempts": 1 }
+    },
+    {
+      "id": "missing-key",
+      "description": "With no key passed and none in PDFCONVERSIONAPI_KEY, convert raises MissingApiKeyError before any request.",
+      "call": "convert",
+      "client": { "api_key": null },
+      "from": "txt",
+      "to": "pdf",
+      "files": [{ "path": "hello.txt" }],
+      "expect": { "error": { "type": "MissingApiKeyError" }, "attempts": 0 }
+    },
+    {
+      "id": "conversions-without-key",
+      "description": "The list of conversions needs no key.",
+      "call": "conversions",
+      "client": { "api_key": null },
+      "expect": {
+        "conversions": {
+          "count": 5,
+          "first": { "from": "docx", "to": "pdf", "title": "DOCX to PDF", "category": "Document", "inputs": "one" }
+        }
+      }
+    },
+    {
+      "id": "wrong-key",
+      "description": "An unknown key gets AuthenticationError, not retried.",
+      "call": "convert",
+      "client": { "api_key": "wrong-key" },
+      "from": "txt",
+      "to": "pdf",
+      "files": [{ "path": "hello.txt" }],
+      "expect": { "error": { "type": "AuthenticationError", "status": 401, "message_contains": "valid API key", "request_id": true }, "attempts": 1 }
+    },
+    {
+      "id": "error-400",
+      "call": "convert", "from": "txt", "to": "pdf", "files": [{ "path": "hello.txt" }],
+      "params": { "MockScenario": "400" },
+      "expect": { "error": { "type": "BadRequestError", "status": 400, "message": "PageRange '3-1' is not valid (example: 1-3,5)", "request_id": true }, "attempts": 1 }
+    },
+    {
+      "id": "error-403",
+      "call": "convert", "from": "txt", "to": "pdf", "files": [{ "path": "hello.txt" }],
+      "params": { "MockScenario": "403" },
+      "expect": { "error": { "type": "PermissionDeniedError", "status": 403, "message_contains": "not set up" }, "attempts": 1 }
+    },
+    {
+      "id": "error-404",
+      "call": "convert", "from": "txt", "to": "pdf", "files": [{ "path": "hello.txt" }],
+      "params": { "MockScenario": "404" },
+      "expect": { "error": { "type": "NotFoundError", "status": 404, "message": "conversion from docx to dwg is not supported" }, "attempts": 1 }
+    },
+    {
+      "id": "error-413",
+      "call": "convert", "from": "txt", "to": "pdf", "files": [{ "path": "hello.txt" }],
+      "params": { "MockScenario": "413" },
+      "expect": { "error": { "type": "PayloadTooLargeError", "status": 413, "message_contains": "10 MB" }, "attempts": 1 }
+    },
+    {
+      "id": "error-413-html",
+      "description": "The edge network's HTML 413: no JSON body and no x-request-id.",
+      "call": "convert", "from": "txt", "to": "pdf", "files": [{ "path": "hello.txt" }],
+      "params": { "MockScenario": "413-html" },
+      "expect": { "error": { "type": "PayloadTooLargeError", "status": 413, "message": "non-JSON response (text/html)", "request_id": false }, "attempts": 1 }
+    },
+    {
+      "id": "error-422",
+      "call": "convert", "from": "txt", "to": "pdf", "files": [{ "path": "hello.txt" }],
+      "params": { "MockScenario": "422" },
+      "expect": { "error": { "type": "UnprocessableEntityError", "status": 422, "message": "the input file is password-protected" }, "attempts": 1 }
+    },
+    {
+      "id": "error-400-plain-text",
+      "description": "A short text/plain error body becomes the message.",
+      "call": "convert", "from": "txt", "to": "pdf", "files": [{ "path": "hello.txt" }],
+      "params": { "MockScenario": "400-text" },
+      "expect": { "error": { "type": "BadRequestError", "status": 400, "message": "Invalid `boundary` for `multipart/form-data` request" }, "attempts": 1 }
+    },
+    {
+      "id": "error-504-empty-body",
+      "description": "504 with an empty JSON-typed body is raised, not retried.",
+      "call": "convert", "from": "txt", "to": "pdf", "files": [{ "path": "hello.txt" }],
+      "params": { "MockScenario": "504-empty" },
+      "expect": { "error": { "type": "GatewayTimeoutError", "status": 504, "message": "empty response", "request_id": true }, "attempts": 1 }
+    },
+    {
+      "id": "error-500-retried-once",
+      "description": "A 500 is retried once, then raised.",
+      "call": "convert", "from": "txt", "to": "pdf", "files": [{ "path": "hello.txt" }],
+      "params": { "MockScenario": "500" },
+      "expect": { "error": { "type": "InternalServerError", "status": 500, "message": "internal error" }, "attempts": 2 }
+    },
+    {
+      "id": "error-500-then-ok",
+      "call": "convert", "from": "txt", "to": "pdf", "files": [{ "path": "hello.txt" }],
+      "params": { "MockScenario": "500", "MockFailures": 1 },
+      "expect": { "result": { "files": [{ "name": "hello.pdf" }] }, "attempts": 2 }
+    },
+    {
+      "id": "retry-503-busy-then-ok",
+      "description": "503 is retried after Retry-After (plus jitter).",
+      "call": "convert", "from": "txt", "to": "pdf", "files": [{ "path": "hello.txt" }],
+      "params": { "MockScenario": "503-busy", "MockFailures": 2 },
+      "expect": { "result": { "files": [{ "name": "hello.pdf" }] }, "attempts": 3, "min_sleeps": [1, 1] }
+    },
+    {
+      "id": "retry-429-rate-then-ok",
+      "call": "convert", "from": "txt", "to": "pdf", "files": [{ "path": "hello.txt" }],
+      "params": { "MockScenario": "429-rate", "MockFailures": 1 },
+      "expect": { "result": { "files": [{ "name": "hello.pdf" }] }, "attempts": 2, "min_sleeps": [1] }
+    },
+    {
+      "id": "retry-429-concurrency-then-ok",
+      "call": "convert", "from": "txt", "to": "pdf", "files": [{ "path": "hello.txt" }],
+      "params": { "MockScenario": "429-concurrency", "MockFailures": 1 },
+      "expect": { "result": { "files": [{ "name": "hello.pdf" }] }, "attempts": 2, "min_sleeps": [1] }
+    },
+    {
+      "id": "retry-gives-up-after-5-attempts",
+      "description": "With the default max_retries (4), a 503 that never clears is raised after 5 attempts.",
+      "call": "convert", "from": "txt", "to": "pdf", "files": [{ "path": "hello.txt" }],
+      "params": { "MockScenario": "503-busy" },
+      "expect": { "error": { "type": "ServiceUnavailableError", "status": 503, "retry_after": 1 }, "attempts": 5, "min_sleeps": [1, 1, 1, 1] }
+    },
+    {
+      "id": "retries-disabled",
+      "description": "max_retries 0 sends the request once.",
+      "call": "convert", "client": { "max_retries": 0 }, "from": "txt", "to": "pdf", "files": [{ "path": "hello.txt" }],
+      "params": { "MockScenario": "503-busy", "MockFailures": 1 },
+      "expect": { "error": { "type": "ServiceUnavailableError", "status": 503 }, "attempts": 1 }
+    },
+    {
+      "id": "quota-not-retried",
+      "description": "A Retry-After longer than max_retry_wait (60 s) is raised at once.",
+      "call": "convert", "from": "txt", "to": "pdf", "files": [{ "path": "hello.txt" }],
+      "params": { "MockScenario": "429-quota" },
+      "expect": { "error": { "type": "RateLimitError", "status": 429, "retry_after": 2000000, "message_contains": "used up" }, "attempts": 1 }
+    },
+    {
+      "id": "paused-not-retried",
+      "call": "convert", "from": "txt", "to": "pdf", "files": [{ "path": "hello.txt" }],
+      "params": { "MockScenario": "503-paused" },
+      "expect": { "error": { "type": "ServiceUnavailableError", "status": 503, "retry_after": 600 }, "attempts": 1 }
+    },
+    {
+      "id": "connection-dropped-then-ok",
+      "description": "A connection closed without a response is retried with backoff.",
+      "call": "convert", "from": "txt", "to": "pdf", "files": [{ "path": "hello.txt" }],
+      "params": { "MockScenario": "drop", "MockFailures": 1 },
+      "expect": { "result": { "files": [{ "name": "hello.pdf" }] }, "attempts": 2 }
+    },
+    {
+      "id": "connection-always-dropped",
+      "call": "convert", "from": "txt", "to": "pdf", "files": [{ "path": "hello.txt" }],
+      "params": { "MockScenario": "drop" },
+      "expect": { "error": { "type": "ConnectionError" }, "attempts": 5 }
+    },
+    {
+      "id": "client-timeout-not-retried",
+      "description": "The client's own timeout raises TimeoutError and is not retried (the conversion may still run on the server).",
+      "call": "convert", "client": { "timeout_seconds": 1 }, "from": "txt", "to": "pdf", "files": [{ "path": "hello.txt" }],
+      "params": { "MockScenario": "convert", "MockDelayMs": 3000 },
+      "expect": { "error": { "type": "TimeoutError" }, "attempts": 1 }
+    },
+    {
+      "id": "invalid-json-response",
+      "call": "convert", "from": "txt", "to": "pdf", "files": [{ "path": "hello.txt" }],
+      "params": { "MockScenario": "bad-json" },
+      "expect": { "error": { "type": "InvalidResponseError" }, "attempts": 1 }
+    },
+    {
+      "id": "file-size-mismatch",
+      "description": "Decoded data that doesn't match FileSize is an InvalidResponseError.",
+      "call": "convert", "from": "txt", "to": "pdf", "files": [{ "path": "hello.txt" }],
+      "params": { "MockScenario": "size-mismatch" },
+      "expect": { "error": { "type": "InvalidResponseError" }, "attempts": 1 }
+    },
+    {
+      "id": "usage",
+      "call": "usage",
+      "expect": {
+        "usage": {
+          "plan": "Free", "included": 250, "used": 12, "remaining": 238, "overage": false, "running": 0,
+          "concurrent_limit": 1, "max_upload_mb": 10,
+          "period_start": "2026-11-01T00:00:00Z", "period_end": "2026-12-01T00:00:00Z"
+        }
+      }
+    },
+    {
+      "id": "usage-wrong-key",
+      "call": "usage",
+      "client": { "api_key": "wrong-key" },
+      "expect": { "error": { "type": "AuthenticationError", "status": 401 } }
+    },
+    {
+      "id": "delete-unknown-file",
+      "description": "Deleting an id that doesn't exist returns false.",
+      "call": "delete_stored_file",
+      "file_id": "00000000000000000000000000000000",
+      "expect": { "deleted": false }
+    }
+  ]
+}
